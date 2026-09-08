@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.18.1 — 2026-09-08
+
+Custom phoebeyou laptop fork; not an upstream npm release.
+
+- Add opt-in macOS battery-above-50% and provider connectivity gates for due
+  usage-limit resumes and recognized CLI transport retries.
+- Keep reset deadlines and retry budgets intact while waiting offline.
+- Honor the master pause switch and recheck pane/lease liveness after backoff.
+- Include an Amphetamine setup guide, review notes and offline regression tests.
+
 ## 1.18.0 — 2026-09-02
 
 **Cursor CLI support**, a wrapper change that keeps `cursor .` working, and a
