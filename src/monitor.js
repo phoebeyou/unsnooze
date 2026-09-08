@@ -30,6 +30,8 @@ import { makeLogger } from './logger.js';
 import { addressHash, readLease } from './lease.js';
 import { claudeRecordEnv, hasClaudeParentUsageAfter } from './sessions.js';
 
+import { checkResumeReadiness } from './resume-readiness.js';
+
 const log = makeLogger('monitor');
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -72,6 +74,7 @@ export function createMonitor({
   scrapeInterval = SCRAPE_INTERVAL_MS, notifier = notify,
   spawner = spawnDetached, versionSkewed = hasVersionSkew, handoffBin = UNSNOOZE_BIN,
   leaseGraceMs = LEASE_GRACE_MS, startedAt = Date.now(),
+  readiness = checkResumeReadiness, waitForRetry = sleep,
 }) {
   const notifyCtx = { mux: muxName, pane, paneOwner };
   let trackedKey = null;      // state key of the record we created
@@ -236,6 +239,8 @@ export function createMonitor({
   }
 
   async function handleOverload() {
+    if (!getConfig('autoResume')) return;
+    if (!(await readiness({ agent: agent.id })).ready) return;
     if (overloadAttempt >= OVERLOAD_BACKOFF_S.length) {
       log(`pane ${pane}: overload retries exhausted`);
       overloadAttempt = 0;   // reset ladder; next marker starts fresh
@@ -246,8 +251,14 @@ export function createMonitor({
     const wait = Math.round(base + jitter);
     overloadAttempt++;
     log(`pane ${pane}: overload — retry ${overloadAttempt}/${OVERLOAD_BACKOFF_S.length} in ${Math.round(wait / 1000)}s`);
-    await sleep(wait);
-    if (!running) return;
+    await waitForRetry(wait);
+    if (!running || !getConfig('autoResume')) return;
+    if (!(await readiness({ agent: agent.id })).ready) {
+      overloadAttempt--; // Going offline during backoff is not a failed retry.
+      return;
+    }
+    if (!(await mux.paneAlive(pane))) return;
+    if (leaseId && !readLease({ mux: muxName, paneOwner, pane }, leaseId)) return;
     const text = await mux.capturePane(pane, CAPTURE_LINES).catch(() => null);
     if (text === null) return;
     if (isBusy(text, agent.patterns.busyPatterns)) { log(`pane ${pane}: busy after overload wait — skip inject`); return; }

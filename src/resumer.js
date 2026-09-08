@@ -33,6 +33,8 @@ import { createLeaseId, leaseMatches, paneOwnedByRecord } from './lease.js';
 import { autoReapIfEnabled, attachHint } from './reap.js';
 import { tickUsageWarnings } from './usage.js';
 
+import { checkResumeReadiness } from './resume-readiness.js';
+
 const log = makeLogger('resumer');
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const MAX_VERIFY_RETRIES = 3;
@@ -474,6 +476,7 @@ export async function assessPane(rec, agent, { mux, matchesLease = leaseMatches 
 export async function planFor(rec, {
   mux = resolveRecordMux(rec), matchesLease = leaseMatches,
   fingerprint = workspaceFingerprint, contextTokens = null, now = Date.now(),
+  readiness = checkResumeReadiness,
 } = {}) {
   const agent = getAgent(rec.agent);
   const gates = [];
@@ -517,6 +520,11 @@ export async function planFor(rec, {
   if ((rec.attempts || 0) >= MAX_RESUME_ATTEMPTS) {
     gates.push(`attempts ${rec.attempts}/${MAX_RESUME_ATTEMPTS} exhausted — would be marked failed (re-arms on a fresh detection)`);
     return { ...base, action: 'give-up' };
+  }
+  const ready = await readiness(rec);
+  if (!ready.ready) {
+    gates.push(ready.reason);
+    return { ...base, action: 'environment-wait' };
   }
   if (isProbe) {
     // Past the hard ceiling, rescheduleProbe deterministically stops probing
@@ -599,6 +607,7 @@ export async function dispatchOne(rec, {
   mux = resolveRecordMux(rec), resolveMux = null,
   resumeMessage, selfCmd = selfCommand(), fingerprint = workspaceFingerprint,
   notifier = notify, matchesLease = leaseMatches, contextTokens = null,
+  readiness = checkResumeReadiness,
 } = {}) {
   resolveMux ||= () => mux;
   const key = rec.key;
@@ -606,6 +615,13 @@ export async function dispatchOne(rec, {
   // Cheap early reconciliation; this is repeated after asynchronous pane or
   // multiplexer inspection, immediately before any keystroke/window launch.
   if (finishIfClaudeProgressed(rec, agent)) return 'already-resumed';
+  const ready = await readiness(rec);
+  if (!ready.ready) {
+    if (!transitionStopEpisode(rec, 'stopped', {
+      lastError: ready.reason,
+    }, { expect: ['stopped'] })) return 'stale';
+    return 'environment-wait';
+  }
   // Wake-message precedence: per-session (`unsnooze message <id> "..."`) →
   // explicit option → per-agent (`resumeMessages.<id>`) → global. Applies to
   // both the live-pane sendText and the argv reopen path.

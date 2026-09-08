@@ -1,3 +1,5 @@
+> **Custom laptop fork:** macOS battery >50% and connectivity gates for automatic resumes. See [setup, behavior and testing](docs/LAPTOP-MODE.md).
+
 <div align="center">
 
 <img src="assets/banner.svg" alt="unsnooze — wakes every limit-stopped AI session the moment the limit resets" width="880"/>
