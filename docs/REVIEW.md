@@ -1,5 +1,8 @@
 # Review and validation
 
+For the later claude-swap integration and current-laptop tests, see
+[current journey verification](JOURNEY-VERIFICATION.md).
+
 Reviewed upstream commit `42cba15` (Unsnooze 1.18.0) for the laptop commute and
 usage-limit recovery workflow. This is a focused reliability review, not an
 exhaustive security audit of every supported agent/backend.

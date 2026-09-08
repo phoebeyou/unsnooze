@@ -117,3 +117,9 @@ test('an agent merely mentioning /design-login is not a terminal stop', () => {
       `prose wrongly classified as a terminal stop: ${text}`);
   }
 });
+
+test('installed 2.1.263 connection failure is retriable, not a quota stop', () => {
+  const text = 'Unable to connect to API. Check your internet connection\n❯';
+  assert.ok(overloadMatch(text, patterns.overloadPatterns));
+  assert.equal(detect(text).hit, false);
+});

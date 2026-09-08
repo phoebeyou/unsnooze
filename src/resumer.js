@@ -34,6 +34,7 @@ import { autoReapIfEnabled, attachHint } from './reap.js';
 import { tickUsageWarnings } from './usage.js';
 
 import { checkResumeReadiness } from './resume-readiness.js';
+import { accountReadiness } from './account-switcher.js';
 
 const log = makeLogger('resumer');
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -1020,6 +1021,26 @@ export function routeDispatchOutcome(result, rec, deferCounts, { maxBusyDefers =
   return { verify: result === 'injected' || result === 'reopen', waitBusy: false };
 }
 
+// A confirmed automatic switch AFTER a stop can make its old account's
+// reset deadline irrelevant. Re-arm once per successful switch, preserving
+// the original deadline for inspection. This never performs a switch itself.
+export async function reconcileAccountSwitches({ inspect = accountReadiness, now = Date.now() } = {}) {
+  if (!getConfig('autoResume') || getConfig('accountSwitcher') !== 'claude-swap') return;
+  for (const rec of activeStopped()) {
+    const account = await inspect(rec);
+    const switchedAt = account.switchedAt;
+    if (!account.ready || !Number.isFinite(switchedAt)
+      || switchedAt <= (stopEpisodeAt(rec) ?? 0)
+      || switchedAt <= (rec.accountSwitchAt ?? 0)) continue;
+    transitionStopEpisode(rec, 'stopped', {
+      originalResetAt: rec.originalResetAt ?? rec.resetAt,
+      resetAt: Math.min(rec.resetAt ?? now, now),
+      resetSource: 'account-switch', accountSwitchAt: switchedAt,
+      lastError: null,
+    }, { expect: ['stopped'] });
+  }
+}
+
 // persistent: never exit on an empty ledger (daemon mode — `unsnooze daemon`,
 // launchd/systemd). watcher: transcript watcher ticked every loop, so GUI
 // sessions are detected without a hook or pane. signal: clean shutdown.
@@ -1120,6 +1141,7 @@ export async function runResumer({
         return 0;
       }
 
+      await reconcileAccountSwitches();
       const due = dueForDispatch().filter(s => (s.attempts || 0) < MAX_RESUME_ATTEMPTS);
       // Anything over the attempts cap is dead — mark failed so we can exit.
       for (const s of dueForDispatch()) {

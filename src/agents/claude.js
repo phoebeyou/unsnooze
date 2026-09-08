@@ -49,6 +49,9 @@ export const patterns = {
   idleRegex: /[❯>]/,
   // Anchored to Claude Code's error render ("API Error: 529") — never bare digits.
   overloadPatterns: [
+    // Verbatim transport-error wording in the installed 2.1.263 binary.
+    /Unable to connect to API\. Check your internet connection/i,
+    /API Error:?\s*Connection error\./i,
     /API Error:?\s*\(?5\d\d/i,
     /overloaded_error/i,
     /API Error:?\s*\(?429/i,

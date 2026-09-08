@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.18.2 — 2026-09-08
+
+Custom laptop fork: coordinate the commute workflow with claude-swap 0.26.0.
+
+- Wait for actual switch locks and 45 seconds of macOS credential pickup time.
+- A confirmed automatic switch after a shared-profile Claude stop re-arms that
+  episode once; otherwise its normal quota reset remains authoritative.
+- Recognize the connection-error wording in Claude Code 2.1.263.
+- Add an opt-in private-tmux journey simulation and installed-switcher protocol
+  test without real credentials or model traffic.
+
 ## 1.18.1 — 2026-09-08
 
 Custom phoebeyou laptop fork; not an upstream npm release.

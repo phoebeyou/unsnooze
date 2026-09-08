@@ -240,7 +240,7 @@ export function createMonitor({
 
   async function handleOverload() {
     if (!getConfig('autoResume')) return;
-    if (!(await readiness({ agent: agent.id })).ready) return;
+    if (!(await readiness({ agent: agent.id, env: claudeRecordEnv() })).ready) return;
     if (overloadAttempt >= OVERLOAD_BACKOFF_S.length) {
       log(`pane ${pane}: overload retries exhausted`);
       overloadAttempt = 0;   // reset ladder; next marker starts fresh
@@ -253,7 +253,7 @@ export function createMonitor({
     log(`pane ${pane}: overload — retry ${overloadAttempt}/${OVERLOAD_BACKOFF_S.length} in ${Math.round(wait / 1000)}s`);
     await waitForRetry(wait);
     if (!running || !getConfig('autoResume')) return;
-    if (!(await readiness({ agent: agent.id })).ready) {
+    if (!(await readiness({ agent: agent.id, env: claudeRecordEnv() })).ready) {
       overloadAttempt--; // Going offline during backoff is not a failed retry.
       return;
     }

@@ -14,6 +14,9 @@ export const CONFIG_FILE = () => join(process.env.UNSNOOZE_STATE_DIR || STATE_DI
 
 export const DEFAULTS = {
   multiplexer: 'auto',    // auto | tmux | zellij | herdr | cmux
+  accountSwitcher: 'off',  // off | claude-swap (default shared Claude profile)
+  accountSwitcherDir: '', // default ~/.claude-swap-backup
+  accountSwitcherPython: 'python3',
   laptopMode: 'off',       // off | battery50: macOS battery >50% + provider connectivity
   autoResume: true,        // master switch: dispatch resumes when limits reset
   menuAutoAnswer: true,    // may unsnooze drive Claude's limit menu (send keys)?
@@ -64,6 +67,9 @@ export const DEFAULTS = {
 // Env override per key. Booleans accept 1/0, true/false, on/off, yes/no.
 const ENV_NAMES = {
   multiplexer: 'UNSNOOZE_MULTIPLEXER',
+  accountSwitcher: 'UNSNOOZE_ACCOUNT_SWITCHER',
+  accountSwitcherDir: 'UNSNOOZE_ACCOUNT_SWITCHER_DIR',
+  accountSwitcherPython: 'UNSNOOZE_ACCOUNT_SWITCHER_PYTHON',
   laptopMode: 'UNSNOOZE_LAPTOP_MODE',
   autoResume: 'UNSNOOZE_AUTO_RESUME',
   menuAutoAnswer: 'UNSNOOZE_MENU_AUTO_ANSWER',
@@ -123,6 +129,7 @@ const KNOWN_KEYS = Object.keys(ENV_NAMES);
 
 // String settings restricted to a fixed set of values.
 const ENUMS = {
+  accountSwitcher: ['off', 'claude-swap'],
   laptopMode: ['off', 'battery50'],
   multiplexer: ['auto', ...MUX_NAMES],
   workspaceGuard: ['off', 'inform', 'pause'],

@@ -3,8 +3,9 @@
 This fork adds an opt-in macOS profile for Codex CLI and Claude Code. It waits
 for battery **strictly above 50%** and a verified TLS connection to the provider
 before resuming a due usage-limit stop or retrying a recognized CLI transport
-error. The limit must still reach its reset time; this does not reset or bypass
-usage limits.
+error. Quota stops wait for their reset unless a confirmed claude-swap automatic
+switch after the stop makes that old account deadline irrelevant. No quota is reset
+or bypassed by this code.
 
 ## Enable after installing this fork
 
@@ -14,6 +15,8 @@ From this checkout:
 npm ci --ignore-scripts
 npm install -g . --ignore-scripts
 unsnooze config set laptopMode battery50
+unsnooze config set accountSwitcher claude-swap
+unsnooze config set accountSwitcherPython /usr/bin/python3
 unsnooze config set autoResume on
 unsnooze config set multiplexer tmux
 unsnooze config set updateCheck off
@@ -34,6 +37,35 @@ variables. `laptopMode off` restores upstream behavior. `autoResume off` pauses
 future automatic limit resumes and transport-error retries; it does not stop
 an agent already working. Explicit resume-now still obeys laptop readiness.
 
+## Claude-swap on this laptop
+
+The inspected laptop runs claude-swap 0.26.0. Its existing launchd job invokes
+`cswap auto --once` every 60 seconds. Keep this one service; do not start another
+competing auto-switch loop. Exit code 2 means no action was needed.
+
+The new integration only reads `sequence.json` and `autoswitch_state.json`,
+under the switcher's actual `.autoswitch_state.lock` and `.lock` advisory locks.
+It never reads credentials, invokes `cswap switch`, or logs account identities.
+An existing unlocked lock file is normal and does not block resumption.
+
+While a switch is in progress, wait. After it completes, allow 45 seconds for
+Claude's macOS credential cache (the installed switcher documents about 30
+seconds). A recorded automatic switch *after* a stop can bring that stop's due
+time forward once. A switch before the stop cannot: the new account may itself
+have hit a limit. Without a confirmed switch, keep the original reset time.
+Existing busy/ownership checks and post-resume verification still apply; a
+switch is not proof that a model request succeeded or that all model quotas
+have headroom.
+
+This integration applies only to the default shared Claude profile. `cswap
+session` profiles with custom config/secure-storage directories are isolated
+and retain their own deadlines. Manual switches do not emit the automatic
+switch completion record and therefore do not accelerate a quota stop.
+Missing, incompatible or unreadable switch metadata holds shared-profile
+resumes while this integration is enabled. `accountSwitcher off` disables that
+gate. Python 3 is needed for the read-only POSIX-lock probe; `/usr/bin/python3`
+was present on the inspected Mac. There is no new Python package dependency.
+
 ## Intended evening workflow
 
 1. Start Codex or Claude through the installed shell wrapper in tmux. Give it a
@@ -52,9 +84,11 @@ an agent already working. Explicit resume-now still obeys laptop readiness.
 
 ## Amphetamine settings on the work Mac
 
-Configure a **Battery & Power Adapter** trigger whose battery criterion is
-above 50%, independent of adapter connection and Wi-Fi availability. Verify the
-trigger stops at 50% on your installed version. Do not use a Wi-Fi-only trigger:
+In Amphetamine 5.3.2, name the trigger **Keep awake above 50%**. Click **+ →
+Battery & Power Adapter**. Move the slider until its displayed label says
+**51% charged**: the criterion says **Battery is at least**, so 51% implements
+strictly above 50%. Leave all four adapter-related checkboxes unchecked. Click
+**Add criterion**, then **Save**, and enable the trigger. Verify it stops at 50%. Do not use a Wi-Fi-only trigger:
 letting the system sleep during the commute prevents this local watcher from
 noticing Wi-Fi returning.
 
@@ -104,6 +138,18 @@ network, timers and terminal panes, with a temporary state directory. It tests
 durable state rereads, same-session revival, duplicate dispatch prevention,
 recognized CLI transport recovery, internal busy retries and the pause switch.
 No model requests, real session resumes or power changes are needed.
+
+`node scripts/laptop-journey.mjs` adds real tmux with a private socket and fake
+Claude process. It simulates the commute, switch pickup delay, reset during an
+outage, 50/51% boundary and completed work. It requires permission to create a
+local tmux socket. Never point this test at a real agent.
+
+The installed-switcher bridge can also be tested with
+`UNSNOOZE_TEST_CSWAP_PYTHON=/path/to/cswap/python3 node --test test/account-switcher.test.js`.
+This invokes the installed engine's completion/locking/state-write path with
+fake credential mutation and a temporary account inventory.
+
+See [current-laptop verification](JOURNEY-VERIFICATION.md) for evidence and limits.
 
 After deployment, perform a supervised physical acceptance test on a desk:
 start a harmless wrapped task, disconnect Wi-Fi, close the lid with adequate

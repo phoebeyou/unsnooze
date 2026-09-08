@@ -1,6 +1,6 @@
 {
   "name": "unsnooze",
-  "version": "1.18.1",
+  "version": "1.18.2",
   "description": "Automatically resume Claude Code, Codex CLI, Grok, Qwen Code, Kimi CLI, OpenCode, Antigravity, and Cursor CLI sessions when 5-hour or weekly usage limits reset\u2014on macOS, Linux and Windows, with or without a terminal multiplexer.",
   "keywords": [
     "claude",
@@ -71,7 +71,8 @@
     "README.md",
     "LICENSE",
     "CHANGELOG.md",
-    "docs/LAPTOP-MODE.md"
+    "docs/LAPTOP-MODE.md",
+    "docs/JOURNEY-VERIFICATION.md"
   ],
   "scripts": {
     "test": "node --test"

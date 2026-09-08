@@ -1,9 +1,10 @@
 // Readiness gates do not change the reset deadline or spend a resume attempt.
-// They run only when a tracked stop is due; no model request or credentials.
+// Used for due quota stops and terminal transport retries; no model requests.
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { connect } from 'node:tls';
 import { getConfig } from './settings.js';
+import { accountReadiness } from './account-switcher.js';
 
 const runFile = promisify(execFile);
 const PROVIDER_HOSTS = Object.freeze({
@@ -54,7 +55,10 @@ export function providerReachable(host, { dial = connect, timeoutMs = 3000 } = {
 export async function checkResumeReadiness(rec, {
   mode = getConfig('laptopMode'), platform = process.platform,
   battery = readBatteryPercent, reachable = providerReachable,
+  account = accountReadiness,
 } = {}) {
+  const switched = await account(rec);
+  if (!switched.ready) return { ready: false, reason: `waiting: ${switched.reason}` };
   if (mode === 'off') return { ready: true };
   const wait = reason => ({ ready: false, reason: `waiting: ${reason}` });
   if (mode !== 'battery50') return wait('invalid laptopMode; use off or battery50');
